@@ -1,4 +1,4 @@
-# Import statements
+# Import statements - run: pip install -r requirements.txt
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +18,8 @@ class StockAnalyser():
         self.start = start
         self.end = end
 
-        self.df = yf.download(self.stock, self.start, self.end) 
+        self.df = yf.download(self.stock, self.start, self.end,
+                              auto_adjust=False, multi_level_index=False) 
         # Remove null and na values
         self.df.isnull().values.any()
         self.df = self.df.dropna()
