@@ -2,3 +2,5 @@ pandas
 matplotlib
 numpy
 yfinance
+statsmodels
+scikit-learn
