@@ -22,45 +22,30 @@ class StockAnalyser():
         # Remove null and na values
         self.df.isnull().values.any()
         self.df = self.df.dropna()
-    
-    # # Define a loss function
-    # # in addition to the one imported 
-    # # via sklearn
-    # # Symmetric Moving Average Percentage Error
-    # def smape(y_true, y_pred, epsilon=1e-8):
-    #     # Calculate denominator and add epsilon
-    #     # to avoid division by zero
-    #     denom = (np.abs(y_pred) + np.abs(y_true)) + epsilon
-    #     # Calculate absolute percentage error with 
-    #     # symmetric scaling
-    #     ape = np.abs(y_pred - y_true) * 200 / denom
-    #     # Calculate the mean of smape
-    #     mean_smape = np.mean(ape)
-    #     return mean_smape
 
     def head(self, n=5):
         # Define a .head method so the user can get 
         # a view of the loaded data
         return self.df.head(n)
     
-    def lag_plot(self, n=1):
+    def lag_plot(self, n=1, column="Open"):
         # Make a n day lag plot
         # Make a copy of the data so as to not
         # change the oirignal in an undesired way
 
         data = self.df.copy()
-        data["Lagged Close"] = data["Close"].shift(n)
+        data["Lagged" + column] = data[column].shift(n)
         data = data.dropna() # Drop any na values made by .shift(n)
 
         # Make figure and plot data
         plt.figure(figsize=(10,6))
-        plt.scatter(x=data["Close"],
-                    y=data["Lagged Close"],
+        plt.scatter(x=data[column],
+                    y=data["Lagged" + column],
                     marker="o", s=15
                     )
-        plt.title(f"Lag plot of {self.stock} Closing Prices with a {n}-Day Lag")
-        plt.xlabel("Todays Close")
-        plt.ylabel(f"Close {n} Days ago")
+        plt.title(f"Lag plot of {self.stock} {column} Prices with a {n}-Day Lag")
+        plt.xlabel(f"Todays {column}")
+        plt.ylabel(f"{column} {n} Days ago")
         plt.grid(True)
         plt.show()
 
@@ -178,6 +163,22 @@ class StockAnalyser():
 
     def run_ARIMA(self, periods=1, column="Open", 
                     p_val=5, d_val=1, q_val=0):
+        
+        # Define a loss function
+        # in addition to the one imported 
+        # via sklearn
+        # Symmetric Moving Average Percentage Error
+        def smape(y_true, y_pred, epsilon=1e-8):
+            # Calculate denominator and add epsilon
+            # to avoid division by zero
+            denom = (np.abs(y_pred) + np.abs(y_true)) + epsilon
+            # Calculate absolute percentage error with 
+            # symmetric scaling
+            ape = np.abs(y_pred - y_true) * 200 / denom
+            # Calculate the mean of smape
+            mean_smape = np.mean(ape)
+            return mean_smape
+
         # First perform differencing on the test data
         self.test_series = self.test_data[column]
         self.test_diff = self.test_series.diff(periods=periods)
@@ -207,15 +208,67 @@ class StockAnalyser():
         error = mse(self.test_diff, predictions)
         print(f"Mean Squared Error (MSE): {error:.4f}")
 
+        # Calculate cumulative sum
+        
+        # Get the initial value
+        initial_test_val = self.test_series.iloc[0]
+        # Get differenced values
+        diff_test_vals = self.test_diff.values
+        # Combine the two values 
+        combined_test_vals = np.concatenate((np.array([initial_test_val]).flatten(), 
+                                             diff_test_vals.flatten()))
+        # Carry out cumulative sum
+        self.reverse_test_diff = combined_test_vals.cumsum()
+
+        # Do the same steps as above for predictions
+        pred_vals = np.array(predictions)
+        combined_pred_vals = np.concatenate((np.array([initial_test_val]).flatten(), 
+                                             pred_vals.flatten()))
+        self.reverse_predictions = combined_pred_vals.cumsum()
+        
+        # Calculate error
+        error_mse = mse(self.reverse_test_diff, self.reverse_predictions)
+        error_smape = smape(self.reverse_test_diff, self.reverse_predictions)
+        # Print the erorrs
+        print(f"Testing MSE: {error_mse:.3f}")
+        print(f"Testing SMAPE: {error_smape:.3f}")
+
+        # Change self.reverse_test_diff and self.reverse_predictions to
+        # pd.Series objects and set indices to match an existing
+        # time series to be able to plot
+        self.reverse_test_diff_series = pd.Series(self.reverse_test_diff)
+        self.reverse_test_diff_series.index = self.test_series.index
+        self.reverse_predictions_series = pd.Series(self.reverse_predictions)
+        self.reverse_predictions_series.index = self.test_series.index
+
+        # Plotting
+        plt.figure(figsize=(10,6))
+        plt.title(f"{self.stock} {column} Prices")
+        plt.xlabel("Dates")
+        plt.ylabel(f"{column} Prices")
+        # Plotting the actual data first (train and test series)
+        plt.plot(self.train_series, color="blue", 
+                 label="Train Series Data")
+        # plt.plot(self.test_series, color="green", 
+        #          label="Test Series Data")
+        # Now plotting the model prediction data
+        plt.plot(self.reverse_test_diff_series, color="green", 
+                 label="Testing Prices - Reverse Diff Transform", marker='.')
+        plt.plot(self.reverse_predictions_series, color="red",
+                 label="Forecasted Prices - Reverse Diff Transform", linestyle='--')
+        plt.legend()
+        plt.show()
+
 def main():
     analyse = StockAnalyser()
     print(analyse.head())
-    analyse.lag_plot(5)
-    analyse.train_test_split(column="High")
-    analyse.rolling_stats()
-    analyse.adfuller_test(column="Close", autolag="BIC")
+    COLUMN = "Close"
+    analyse.lag_plot(5, column=COLUMN)
+    analyse.train_test_split(column=COLUMN)
+    analyse.rolling_stats(column=COLUMN)
+    analyse.adfuller_test(column=COLUMN, autolag="AIC")
     analyse.make_stationary()
-    analyse.run_ARIMA()
+    analyse.run_ARIMA(column=COLUMN, d_val=0)
 
 
 if __name__ == "__main__":
