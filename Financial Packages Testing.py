@@ -1,5 +1,6 @@
 # Import statements - run: pip install -r requirements2.txt
 import pandas as pd
+import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
 import torch
@@ -12,10 +13,12 @@ from neuralprophet.configure import (
     ConfigEvents,
     ConfigCountryHolidays,
     Season,
-    Trend
+    Trend,
+    Train
 )
 import warnings
 
+torch.load(weights_only=False)
 warnings.filterwarnings("ignore")
 torch.serialization.add_safe_globals([
     ConfigSeasonality,
@@ -25,7 +28,14 @@ torch.serialization.add_safe_globals([
     ConfigCountryHolidays,
     Season,
     Trend,
-    OrderedDict
+    OrderedDict,
+    Train,
+    torch.nn.modules.loss.SmoothL1Loss,
+    torch.optim.AdamW,
+    torch.optim.lr_scheduler.OneCycleLR,
+    np.core.multiarray._reconstruct,
+    np.ndarray,
+    np.dtype
 ])
 
 
