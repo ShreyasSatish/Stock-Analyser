@@ -257,6 +257,7 @@ class StockAnalyser():
                  label="Testing Prices - Reverse Diff Transform", marker='.')
         plt.plot(self.reverse_predictions_series, color="red",
                  label="Forecasted Prices - Reverse Diff Transform", linestyle='--')
+        plt.grid(True)
         plt.legend()
         plt.show()
 
